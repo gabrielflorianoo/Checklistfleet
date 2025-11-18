@@ -1,29 +1,11 @@
 import { ThemeContext } from '@/context/ThemeContext';
 import { useContext } from 'react';
 
-export interface ThemeContextProps {
-    background: string;
-    text: string;
-    tint: string;
-
-    primary: string;
-    inputBackground: string;
-    border: string;
-    placeholderText: string;
-    buttonText: string;
-
+export interface UseThemeReturn {
     theme: 'light' | 'dark';
-    colorScheme?: 'light' | 'dark' | null;
-
     toggleTheme: () => void;
     setTheme: (theme: 'light' | 'dark') => void;
-}
-
-export interface UseThemeReturn
-    extends Omit<ThemeContextProps, 'toggleTheme' | 'setTheme' | 'theme'> {
     isDark: boolean;
-
-    theme: 'light' | 'dark';
 }
 
 export const useTheme = (): UseThemeReturn => {
@@ -33,11 +15,12 @@ export const useTheme = (): UseThemeReturn => {
         throw new Error('useTheme deve ser usado dentro de ThemeProvider');
     }
 
-    const themeContext = context as ThemeContextProps;
+    const { theme, toggleTheme, setTheme } = context;
 
     return {
-        ...themeContext,
-
-        isDark: themeContext.theme === 'dark',
-    } as UseThemeReturn;
+        theme,
+        toggleTheme,
+        setTheme,
+        isDark: theme === 'dark',
+    };
 };

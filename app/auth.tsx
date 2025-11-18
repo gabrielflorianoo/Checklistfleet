@@ -1,20 +1,22 @@
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
-    ActivityIndicator,
 } from 'react-native';
 
 export default function AuthScreen() {
     const router = useRouter();
-    const colors = useTheme();
+    const { theme } = useTheme();
+    const colors = Colors[theme];
     const { login, register } = useAuth();
 
     const [isLogin, setIsLogin] = useState(true);
@@ -66,11 +68,11 @@ export default function AuthScreen() {
         }
     };
 
-    const inputBgColor = colors.inputBackground || '#f5f5f5';
+    const inputBgColor = colors.surface || colors.background || '#f5f5f5';
     const borderColor = colors.border || '#ddd';
-    const primaryColor = colors.primary || colors.tint || '#007AFF';
-    const buttonTextColor = colors.buttonText || '#fff';
-    const placeholderColor = colors.placeholderText || '#999';
+    const primaryColor = colors.tint || '#007AFF';
+    const buttonTextColor = '#fff';
+    const placeholderColor = colors.placeholder || '#999';
 
     return (
         <View
@@ -84,7 +86,7 @@ export default function AuthScreen() {
                     <Text
                         style={[
                             styles.hint,
-                            { color: colors.placeholderText || '#999' },
+                            { color: colors.placeholder || '#999' },
                         ]}
                     >
                         Demo: admin@example.com

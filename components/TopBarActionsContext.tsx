@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState } from 'react';
 
 type TopBarState = {
-    title?: React.ReactNode;
-    right?: React.ReactNode;
-    left?: React.ReactNode;
+    title?: React.ReactNode | (() => React.ReactNode);
+    right?: React.ReactNode | (() => React.ReactNode);
+    left?: React.ReactNode | (() => React.ReactNode);
 };
 
 type TopBarContextValue = {

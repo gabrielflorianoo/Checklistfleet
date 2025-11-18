@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
 const readFileAsBase64Native = async (uri: string): Promise<string | null> => {
     try {
         const FileSystem = await import('expo-file-system');
-        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'utf8' });
         // default to jpeg mime
         return `data:image/jpeg;base64,${base64}`;
     } catch (err) {

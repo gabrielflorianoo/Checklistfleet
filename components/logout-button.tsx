@@ -43,7 +43,7 @@ export const LogoutButton: React.FC = () => {
     return (
         <TouchableOpacity
             onPress={handlePress}
-            style={[styles.button, { backgroundColor: colors.danger || '#dc2626' }]}
+            style={[styles.button, { backgroundColor: colors.danger || '#dc2626', marginLeft: 12 }]}
             accessibilityLabel="Sair"
         >
             <Text style={styles.text}>Sair</Text>

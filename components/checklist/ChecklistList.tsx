@@ -1,6 +1,5 @@
 import { ChecklistCard } from '@/components/admin/ChecklistCard';
 import { useTopBar } from '@/components/TopBarActionsContext';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useChecklistStorage } from '@/hooks/useChecklistStorage';
@@ -121,6 +120,8 @@ const HeaderActions = ({
     generating,
     colors,
     themedColors,
+    theme,
+    onToggleTheme,
 }: {
     user: any;
     viewMode: 'list' | 'cards';
@@ -132,65 +133,92 @@ const HeaderActions = ({
     generating: boolean;
     colors: typeof Colors.light;
     themedColors: ReturnType<typeof getThemedColors>;
-}) => (
-    <>
-        <ThemeToggle />
-        <TouchableOpacity
-            style={[
-                styles.viewToggle,
-                { borderColor: colors.border, backgroundColor: 'transparent' },
-            ]}
-            onPress={() => setViewMode(viewMode === 'list' ? 'cards' : 'list')}
-        >
-            <Text style={[styles.viewToggleText, { color: colors.text }]}>
-                {viewMode === 'list' ? 'Cartões' : 'Lista'}
-            </Text>
-        </TouchableOpacity>
-        {user?.role === 'admin' && (
-            <>
-                <TouchableOpacity
-                    style={[styles.uploadButton, { marginRight: 8 }]}
-                    onPress={onSync}
-                >
-                    <Text style={[styles.generateButtonText]}>
-                        {uploading ? 'Sincronizando...' : 'Sincronizar'}
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.generateButton]}
-                    onPress={onGenerate}
-                >
-                    <Text style={[styles.generateButtonText]}> 
-                        {generating ? 'Gerando...' : 'Gerar 10'}
-                    </Text>
-                </TouchableOpacity>
-            </>
-        )}
-        <TouchableOpacity
-            style={[
-                styles.createButton,
-                { backgroundColor: themedColors.primaryBg },
-            ]}
-            onPress={onCreateNew}
-        >
-            <Text
+    theme: 'light' | 'dark';
+    onToggleTheme: () => void;
+}) => {
+    return (
+        <View style={styles.headerRightContainer}>
+            <TouchableOpacity
                 style={[
-                    styles.createButtonText,
-                    { color: themedColors.primaryText },
+                    styles.viewToggle,
+                    { borderColor: theme === 'dark' ? colors.tint : colors.border, backgroundColor: 'transparent' },
                 ]}
+                onPress={onToggleTheme}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Alternar tema"
             >
-                + Novo
-            </Text>
-        </TouchableOpacity>
-    </>
-);
+                <Text style={[styles.viewToggleText, { color: colors.text }]}> 
+                    {theme === 'dark' ? '☀️' : '🌙'}
+                </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[
+                    styles.viewToggle,
+                    { borderColor: theme === 'dark' ? colors.tint : colors.border, backgroundColor: 'transparent' },
+                ]}
+                onPress={() => setViewMode(viewMode === 'list' ? 'cards' : 'list')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Alternar visualização"
+            >
+                <Text style={[styles.viewToggleText, { color: colors.text }]}> 
+                    {viewMode === 'list' ? 'Cartões' : 'Lista'}
+                </Text>
+            </TouchableOpacity>
+
+            {user?.role === 'admin' && (
+                <>
+                    <TouchableOpacity
+                        style={[styles.uploadButton, { marginRight: 8 }]}
+                        onPress={onSync}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Sincronizar com Firebase"
+                    >
+                        <Text style={[styles.generateButtonText]}> 
+                            {uploading ? 'Sincronizando...' : 'Sincronizar'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.generateButton]}
+                        onPress={onGenerate}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Gerar 10 checklists"
+                    >
+                        <Text style={[styles.generateButtonText]}> 
+                            {generating ? 'Gerando...' : 'Gerar 10'}
+                        </Text>
+                    </TouchableOpacity>
+                </>
+            )}
+
+            <TouchableOpacity
+                style={[
+                    styles.createButton,
+                    { backgroundColor: themedColors.primaryBg },
+                ]}
+                onPress={onCreateNew}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Criar novo checklist"
+            >
+                <Text
+                    style={[
+                        styles.createButtonText,
+                        { color: themedColors.primaryText },
+                    ]}
+                >
+                    + Novo
+                </Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
 
 export const ChecklistList = ({
     onSelectChecklist,
     onCreateNew,
 }: ChecklistListProps) => {
-    const { theme } = useTheme();
+    const { theme, toggleTheme } = useTheme();
     const colors = Colors[theme];
     const themedColors = getThemedColors(colors);
     const { getAllChecklists, deleteChecklist, saveChecklist } = useChecklistStorage();
@@ -211,6 +239,31 @@ export const ChecklistList = ({
             loadChecklists();
         }, []),
     );
+
+    // register title and header actions in top bar
+    React.useEffect(() => {
+        const title = user?.role === 'admin' ? 'Todos os Checklists' : 'Meus Checklists';
+        const right = () => (
+            <HeaderActions
+                user={user}
+                viewMode={viewMode}
+                // pass the setter so HeaderActions can toggle
+                setViewMode={setViewMode}
+                onCreateNew={onCreateNew}
+                onSync={handleSync}
+                onGenerate={handleGenerate}
+                uploading={uploading}
+                generating={generating}
+                colors={colors}
+                themedColors={themedColors}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+            />
+        );
+
+        top.setState({ title, right });
+        return () => top.clear();
+    }, [user?.role, viewMode, uploading, generating, checklists.length]);
 
     const loadChecklists = async () => {
         try {
@@ -337,29 +390,6 @@ export const ChecklistList = ({
         ? 'Mostrando os 5 primeiros checklists'
         : `Mostrando todos os ${filteredChecklists.length} checklists`;
 
-    // register title and header actions in top bar
-    React.useEffect(() => {
-        const title = user?.role === 'admin' ? 'Todos os Checklists' : 'Meus Checklists';
-        const right = (
-            <HeaderActions
-                user={user}
-                viewMode={viewMode}
-                // pass the setter so HeaderActions can toggle
-                setViewMode={setViewMode}
-                onCreateNew={onCreateNew}
-                onSync={handleSync}
-                onGenerate={handleGenerate}
-                uploading={uploading}
-                generating={generating}
-                colors={colors}
-                themedColors={themedColors}
-            />
-        );
-
-        top.setState({ title, right });
-        return () => top.clear();
-    }, [user?.role, viewMode, uploading, generating, checklists.length]);
-
     return (
         <View
             style={[
@@ -465,6 +495,11 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    headerRightContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,

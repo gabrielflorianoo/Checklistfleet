@@ -253,11 +253,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 12,
     },
-    viewImagesButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 6,
-    },
     viewImagesText: {
         color: '#fff',
         fontWeight: '600',

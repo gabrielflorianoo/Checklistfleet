@@ -250,12 +250,16 @@ export const ChecklistForm = ({ checklistId, onSave, onBack }: ChecklistFormProp
                 base64: true,
             });
 
-            if (!result.cancelled) {
-                // result.base64 is available because we requested it
-                const base64 = (result as any).base64 as string | undefined;
+            // Support both `cancelled` (older) and `canceled` (newer) spellings from different versions
+            const wasCancelled = (result as any).cancelled ?? (result as any).canceled ?? false;
+            if (!wasCancelled) {
+                // Treat result as any to support multiple expo-image-picker versions
+                const anyResult = result as any;
+                const base64 = anyResult.base64 as string | undefined;
                 if (base64) {
-                    // attempt to detect mime type from uri extension
-                    const mime = result.uri?.match(/\.([0-9a-zA-Z]+)(?:\?|$)/)?.[1] || 'jpg';
+                    // attempt to detect mime type from uri extension (if available)
+                    const uri = anyResult.uri as string | undefined;
+                    const mime = uri?.match(/\.([0-9a-zA-Z]+)(?:\?|$)/)?.[1] || 'jpg';
                     const dataUrl = `data:image/${mime === 'jpg' ? 'jpeg' : mime};base64,${base64}`;
                     setChecklist((prev) => ({
                         ...prev,
@@ -263,11 +267,13 @@ export const ChecklistForm = ({ checklistId, onSave, onBack }: ChecklistFormProp
                     }));
                 } else {
                     // fallback: store uri directly
-                    const uri = result.uri;
-                    setChecklist((prev) => ({
-                        ...prev,
-                        images: [...(prev.images || []), uri].slice(0, 2),
-                    }));
+                    const uri = (result as any).uri as string | undefined;
+                    if (uri) {
+                        setChecklist((prev) => ({
+                            ...prev,
+                            images: [...(prev.images || []), uri].slice(0, 2),
+                        }));
+                    }
                 }
             }
         } catch (err) {
@@ -346,7 +352,7 @@ export const ChecklistForm = ({ checklistId, onSave, onBack }: ChecklistFormProp
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}> 
             <ScrollView
-                ref={(r) => (scrollRef.current = r)}
+                ref={(r) => { scrollRef.current = r; }}
                 showsVerticalScrollIndicator={false}
                 onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
                 scrollEventThrottle={16}
@@ -592,9 +598,9 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     headerBack: {
-        position: 'absolute',
-        left: 12,
-        top: 12,
+        position: 'relative',
+        alignSelf: 'flex-start',
+        marginLeft: 12,
         paddingHorizontal: 8,
         paddingVertical: 6,
         borderRadius: 6,
