@@ -1,14 +1,15 @@
+import { ChecklistCard } from '@/components/admin/ChecklistCard';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useChecklistStorage } from '@/hooks/useChecklistStorage';
 import { useTheme } from '@/hooks/useTheme';
-import { VehicleChecklist } from '@/types/checklist';
+import { ChecklistStatus, INITIAL_SECTIONS, VehicleChecklist } from '@/types/checklist';
+import { confirm, show } from '@/utils/alert';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     StyleSheet,
     Text,
@@ -114,7 +115,9 @@ export const ChecklistList = ({
     const { theme } = useTheme();
     const colors = Colors[theme];
     const themedColors = getThemedColors(colors);
-    const { getAllChecklists, deleteChecklist } = useChecklistStorage();
+    const { getAllChecklists, deleteChecklist, saveChecklist } = useChecklistStorage();
+    const [generating, setGenerating] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
     const { user } = useAuth();
     const [checklists, setChecklists] = useState<VehicleChecklist[]>([]);
     const [loading, setLoading] = useState(true);
@@ -142,42 +145,76 @@ export const ChecklistList = ({
             );
         } catch (error) {
             console.error('Error loading checklists:', error);
-            Alert.alert('Erro', 'Não foi possível carregar os checklists');
+            show('Erro', 'Não foi possível carregar os checklists');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDelete = (id: string, plate: string) => {
-        Alert.alert(
+    const handleDelete = async (id: string, plate: string) => {
+        const ok = await confirm(
             'Confirmar exclusão',
             `Tem certeza que deseja excluir o checklist da placa ${plate}?`,
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Excluir',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await deleteChecklist(id);
-                            await loadChecklists();
-                            Alert.alert(
-                                'Sucesso',
-                                'Checklist excluído com sucesso',
-                            );
-                        } catch (error) {
-                            Alert.alert(
-                                'Erro',
-                                'Não foi possível excluir o checklist',
-                            );
-                        }
-                    },
-                },
-            ],
+            'Excluir',
         );
+
+        if (!ok) return;
+
+        try {
+            await deleteChecklist(id);
+            await loadChecklists();
+            show('Sucesso', 'Checklist excluído com sucesso');
+        } catch (error) {
+            console.error('Erro excluindo checklist:', error);
+            show('Erro', 'Não foi possível excluir o checklist');
+        }
+    };
+
+    const handleGenerate = async () => {
+        const ok = await confirm('Gerar Checklists', 'Gerar 10 checklists de teste?', 'Gerar');
+        if (!ok) return;
+
+        setGenerating(true);
+        try {
+            for (let i = 1; i <= 10; i++) {
+                const now = new Date();
+                const checklist: VehicleChecklist = {
+                    id: `${Date.now()}-${i}`,
+                    plate: `TEST-${String(i).padStart(3, '0')}`,
+                    km: `${Math.floor(Math.random() * 100000)}`,
+                    driver: `Driver Test ${i}`,
+                    date: now.toISOString().split('T')[0],
+                    time: now.toTimeString().split(' ')[0],
+                    sections: INITIAL_SECTIONS.map((s) => ({
+                        ...s,
+                        sectionNotes: '',
+                        items: s.items.map((it) => {
+                            // assign a random status so some show regular/ruim
+                            const r = Math.random();
+                            const status: ChecklistStatus = r < 0.6 ? 'ok' : r < 0.85 ? 'regular' : 'ruim';
+                            return { ...it, status };
+                        }),
+                    })),
+                    generalNotes: 'Auto-generated for testing',
+                    driverSignature: '',
+                    inspectorSignature: '',
+                    createdAt: now.toISOString(),
+                    updatedAt: now.toISOString(),
+                    userId: user?.id,
+                };
+
+                // eslint-disable-next-line no-await-in-loop
+                await saveChecklist(checklist);
+            }
+
+            await loadChecklists();
+            show('Sucesso', '10 checklists gerados');
+        } catch (err) {
+            console.error('Erro gerando checklists:', err);
+            show('Erro', 'Não foi possível gerar checklists');
+        } finally {
+            setGenerating(false);
+        }
     };
 
     if (loading) {
@@ -216,6 +253,24 @@ export const ChecklistList = ({
                 <View style={styles.headerRight}>
                     <ThemeToggle />
                     <TouchableOpacity
+                        style={styles.viewToggle}
+                        onPress={() => setViewMode((v) => (v === 'list' ? 'cards' : 'list'))}
+                    >
+                        <Text style={styles.viewToggleText}>
+                            {viewMode === 'list' ? 'Cartões' : 'Lista'}
+                        </Text>
+                    </TouchableOpacity>
+                    {user?.role === 'admin' && (
+                        <TouchableOpacity
+                            style={[styles.generateButton]}
+                            onPress={handleGenerate}
+                        >
+                            <Text style={[styles.generateButtonText]}>
+                                {generating ? 'Gerando...' : 'Gerar 10'}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
                         style={[
                             styles.createButton,
                             { backgroundColor: themedColors.primaryBg },
@@ -243,39 +298,67 @@ export const ChecklistList = ({
                     >
                         Nenhum checklist criado ainda
                     </Text>
-                    <TouchableOpacity
-                        style={[
-                            styles.emptyButton,
-                            { backgroundColor: themedColors.primaryBg },
-                        ]}
-                        onPress={onCreateNew}
-                    >
-                        <Text
+                    <View style={styles.emptyRow}>
+                        <TouchableOpacity
                             style={[
-                                styles.emptyButtonText,
-                                { color: themedColors.primaryText },
+                                styles.emptyButton,
+                                { backgroundColor: themedColors.primaryBg },
                             ]}
+                            onPress={onCreateNew}
                         >
-                            Criar Primeiro Checklist
-                        </Text>
-                    </TouchableOpacity>
+                            <Text
+                                style={[
+                                    styles.emptyButtonText,
+                                    { color: themedColors.primaryText },
+                                ]}
+                            >
+                                Criar Primeiro Checklist
+                            </Text>
+                        </TouchableOpacity>
+                        {user?.role === 'admin' && (
+                            <TouchableOpacity
+                                style={[styles.generateButton, { marginLeft: 12 }]}
+                                onPress={handleGenerate}
+                            >
+                                <Text style={[styles.generateButtonText]}>
+                                    {generating ? 'Gerando...' : 'Gerar 10'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
             ) : (
-                <FlatList
-                    data={filteredChecklists}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                        <ChecklistListItem
-                            checklist={item}
-                            onPress={() => onSelectChecklist?.(item.id)}
-                            onEdit={() => onSelectChecklist?.(item.id)}
-                            colors={colors}
-                            onDelete={() => handleDelete(item.id, item.plate)}
-                        />
-                    )}
-                    contentContainerStyle={styles.listContent}
-                    scrollEnabled={false}
-                />
+                viewMode === 'list' ? (
+                    <FlatList
+                        key={'list'}
+                        data={filteredChecklists}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <ChecklistListItem
+                                checklist={item}
+                                onPress={() => onSelectChecklist?.(item.id)}
+                                onEdit={() => onSelectChecklist?.(item.id)}
+                                colors={colors}
+                                onDelete={() => handleDelete(item.id, item.plate)}
+                            />
+                        )}
+                        contentContainerStyle={styles.listContent}
+                    />
+                ) : (
+                    <FlatList
+                        key={`grid-2`}
+                        data={filteredChecklists}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <View style={styles.cardWrapper}>
+                                <ChecklistCard checklist={item} />
+                            </View>
+                        )}
+                        numColumns={2}
+                        columnWrapperStyle={styles.columnWrapper}
+                        contentContainerStyle={styles.gridContent}
+                    />
+                )
             )}
         </View>
     );
@@ -384,5 +467,43 @@ const styles = StyleSheet.create({
     emptyButtonText: {
         fontWeight: '600',
         fontSize: 14,
+    },
+    emptyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    generateButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 6,
+        backgroundColor: '#2563eb',
+    },
+    generateButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+    },
+    viewToggle: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        marginHorizontal: 6,
+        backgroundColor: 'transparent',
+    },
+    viewToggleText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    gridContent: {
+        padding: 12,
+    },
+    cardWrapper: {
+        flex: 1,
+        padding: 6,
+    },
+    columnWrapper: {
+        justifyContent: 'space-between',
     },
 });

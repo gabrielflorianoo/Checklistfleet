@@ -1,3 +1,4 @@
+import Header from '@/components/ui/Header';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useChecklistStorage } from '@/hooks/useChecklistStorage';
@@ -25,6 +26,7 @@ import { TextInputField } from './TextInputField';
 export interface ChecklistFormProps {
     checklistId?: string;
     onSave?: (checklist: VehicleChecklist) => void;
+    onBack?: () => void;
 }
 
 const generateRandomData = () => {
@@ -69,7 +71,7 @@ const generateRandomData = () => {
     };
 };
 
-export const ChecklistForm = ({ checklistId, onSave }: ChecklistFormProps) => {
+export const ChecklistForm = ({ checklistId, onSave, onBack }: ChecklistFormProps) => {
     const { theme } = useTheme();
     const colors = Colors[theme];
     const { user } = useAuth();
@@ -180,19 +182,7 @@ export const ChecklistForm = ({ checklistId, onSave }: ChecklistFormProps) => {
             style={[styles.container, { backgroundColor: colors.background }]}
             showsVerticalScrollIndicator={false}
         >
-            <View
-                style={[
-                    styles.header,
-                    {
-                        backgroundColor: colors.surface,
-                        borderBottomColor: colors.border,
-                    },
-                ]}
-            >
-                <Text style={[styles.headerTitle, { color: colors.text }]}>
-                    🚗 Checklist de Veículo
-                </Text>
-            </View>
+            <Header title={'🚗 Checklist de Veículo'} onBack={onBack} />
 
             <AutoFillButton onAutoFill={handleAutoFill} colors={colors} />
 
@@ -347,6 +337,17 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 20,
         fontWeight: '700',
+    },
+    headerBack: {
+        position: 'absolute',
+        left: 12,
+        top: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    backText: {
+        fontWeight: '600',
     },
     formSection: {
         marginHorizontal: 12,

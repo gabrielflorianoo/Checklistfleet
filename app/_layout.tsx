@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 
 import { ThemeProvider as CustomThemeProvider } from '@/context/ThemeContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider } from '@/hooks/useAuth';
 
 export const unstable_settings = {
     anchor: 'auth',
@@ -18,30 +19,32 @@ export default function RootLayout() {
     const colorScheme = useColorScheme();
 
     return (
-        <CustomThemeProvider>
-            <ThemeProvider
-                value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
-            >
-                <Stack>
-                    <Stack.Screen
-                        name="index"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="auth"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="(tabs)"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="modal"
-                        options={{ presentation: 'modal', title: 'Modal' }}
-                    />
-                </Stack>
-                <StatusBar style="auto" />
-            </ThemeProvider>
-        </CustomThemeProvider>
+        <AuthProvider>
+            <CustomThemeProvider>
+                <ThemeProvider
+                    value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}
+                >
+                    <Stack>
+                        <Stack.Screen
+                            name="index"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="auth"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="(tabs)"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="modal"
+                            options={{ presentation: 'modal', title: 'Modal' }}
+                        />
+                    </Stack>
+                    <StatusBar style="auto" />
+                </ThemeProvider>
+            </CustomThemeProvider>
+        </AuthProvider>
     );
 }

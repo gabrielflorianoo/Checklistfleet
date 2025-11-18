@@ -6,7 +6,7 @@ import {
 } from '@/types/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import { useCallback, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
     Platform
 } from 'react-native';
@@ -112,7 +112,16 @@ const initializeDefaultAdmin = async () => {
     }
 };
 
-export const useAuth = () => {
+type AuthContextType = AuthState & {
+    loading: boolean;
+    register: (c: RegisterCredentials) => Promise<{ success: boolean; user?: User; error?: string }>;
+    login: (c: LoginCredentials) => Promise<{ success: boolean; user?: User; error?: string }>;
+    logout: () => Promise<{ success: boolean; error?: string }>;
+};
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const useProvideAuth = (): AuthContextType => {
     const [authState, setAuthState] = useState<AuthState>({
         token: null,
         user: null,
@@ -243,4 +252,17 @@ export const useAuth = () => {
         login,
         logout,
     };
+};
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+    const value = useProvideAuth();
+    return React.createElement(AuthContext.Provider, { value }, children);
+};
+
+export const useAuth = () => {
+    const ctx = useContext(AuthContext);
+    if (!ctx) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return ctx;
 };

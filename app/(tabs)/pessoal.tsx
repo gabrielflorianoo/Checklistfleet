@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Platform,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -60,20 +61,45 @@ export default function PessoalScreen() {
     };
 
     const handleLogout = () => {
+        console.log('handleLogout invoked');
+
+        // On web, react-native Alert.alert sometimes behaves differently.
+        // Use native confirm dialog as a fallback for clearer UX/debugging.
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            const ok = window.confirm('Tem certeza que deseja sair?');
+            if (!ok) return;
+
+            (async () => {
+                try {
+                    console.log('logout starting (web fallback)');
+                    const result = await logout();
+                    console.log('logout result:', result);
+                    if (result && (result as any).success === false) {
+                        Alert.alert('Erro', (result as any).error || 'Não foi possível sair');
+                        return;
+                    }
+                    router.replace('/auth');
+                } catch (err) {
+                    console.error('Erro ao efetuar logout:', err);
+                    Alert.alert('Erro', 'Não foi possível sair no momento');
+                }
+            })();
+
+            return;
+        }
+
         Alert.alert('Logout', 'Tem certeza que deseja sair?', [
             { text: 'Cancelar', style: 'cancel' },
             {
                 text: 'Sair',
                 style: 'destructive',
                 onPress: async () => {
+                    console.log('logout confirmed (native alert)');
                     try {
                         const result = await logout();
+                        console.log('logout result:', result);
                         if (result && (result as any).success === false) {
-                            Alert.alert(
-                                'Erro',
-                                (result as any).error ||
-                                'Não foi possível sair',
-                            );
+                            Alert.alert('Erro', (result as any).error || 'Não foi possível sair');
                             return;
                         }
 
