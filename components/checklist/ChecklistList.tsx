@@ -1,4 +1,5 @@
 import { ChecklistCard } from '@/components/admin/ChecklistCard';
+import { useTopBar } from '@/components/TopBarActionsContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,6 +7,7 @@ import { useChecklistStorage } from '@/hooks/useChecklistStorage';
 import { useTheme } from '@/hooks/useTheme';
 import { ChecklistStatus, INITIAL_SECTIONS, VehicleChecklist } from '@/types/checklist';
 import { confirm, show } from '@/utils/alert';
+import { isFirebaseConfigured, uploadChecklists } from '@/utils/firebase';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
@@ -108,6 +110,82 @@ const ChecklistListItem = ({
     );
 };
 
+const HeaderActions = ({
+    user,
+    viewMode,
+    setViewMode,
+    onCreateNew,
+    onSync,
+    onGenerate,
+    uploading,
+    generating,
+    colors,
+    themedColors,
+}: {
+    user: any;
+    viewMode: 'list' | 'cards';
+    setViewMode: (v: 'list' | 'cards') => void;
+    onCreateNew?: () => void;
+    onSync: () => Promise<void>;
+    onGenerate: () => Promise<void>;
+    uploading: boolean;
+    generating: boolean;
+    colors: typeof Colors.light;
+    themedColors: ReturnType<typeof getThemedColors>;
+}) => (
+    <>
+        <ThemeToggle />
+        <TouchableOpacity
+            style={[
+                styles.viewToggle,
+                { borderColor: colors.border, backgroundColor: 'transparent' },
+            ]}
+            onPress={() => setViewMode(viewMode === 'list' ? 'cards' : 'list')}
+        >
+            <Text style={[styles.viewToggleText, { color: colors.text }]}>
+                {viewMode === 'list' ? 'Cartões' : 'Lista'}
+            </Text>
+        </TouchableOpacity>
+        {user?.role === 'admin' && (
+            <>
+                <TouchableOpacity
+                    style={[styles.uploadButton, { marginRight: 8 }]}
+                    onPress={onSync}
+                >
+                    <Text style={[styles.generateButtonText]}>
+                        {uploading ? 'Sincronizando...' : 'Sincronizar'}
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.generateButton]}
+                    onPress={onGenerate}
+                >
+                    <Text style={[styles.generateButtonText]}> 
+                        {generating ? 'Gerando...' : 'Gerar 10'}
+                    </Text>
+                </TouchableOpacity>
+            </>
+        )}
+        <TouchableOpacity
+            style={[
+                styles.createButton,
+                { backgroundColor: themedColors.primaryBg },
+            ]}
+            onPress={onCreateNew}
+        >
+            <Text
+                style={[
+                    styles.createButtonText,
+                    { color: themedColors.primaryText },
+                ]}
+            >
+                + Novo
+            </Text>
+        </TouchableOpacity>
+    </>
+);
+
 export const ChecklistList = ({
     onSelectChecklist,
     onCreateNew,
@@ -118,7 +196,9 @@ export const ChecklistList = ({
     const { getAllChecklists, deleteChecklist, saveChecklist } = useChecklistStorage();
     const [generating, setGenerating] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
+    const [uploading, setUploading] = useState(false);
     const { user } = useAuth();
+    const top = useTopBar();
     const [checklists, setChecklists] = useState<VehicleChecklist[]>([]);
     const [loading, setLoading] = useState(true);
     const filteredChecklists =
@@ -217,6 +297,27 @@ export const ChecklistList = ({
         }
     };
 
+    const handleSync = async () => {
+        if (!isFirebaseConfigured()) {
+            show('Firebase não configurado', 'Configure as credenciais do Firebase para usar a sincronização.');
+            return;
+        }
+
+        const ok = await confirm('Sincronizar Firebase', 'Enviar todos os checklists para o Firestore?', 'Sincronizar');
+        if (!ok) return;
+        setUploading(true);
+        try {
+            await uploadChecklists(checklists);
+            show('Sucesso', 'Checklists sincronizados com Firebase');
+            await loadChecklists();
+        } catch (err) {
+            console.error('Erro sincronizando Firebase:', err);
+            show('Erro', 'Não foi possível sincronizar com Firebase');
+        } finally {
+            setUploading(false);
+        }
+    };
+
     if (loading) {
         return (
             <View
@@ -230,64 +331,42 @@ export const ChecklistList = ({
         );
     }
 
+    const limitedChecklists = filteredChecklists.slice(0, 5);
+    const shouldShowLimitMessage = filteredChecklists.length > 5;
+    const limitMessage = shouldShowLimitMessage
+        ? 'Mostrando os 5 primeiros checklists'
+        : `Mostrando todos os ${filteredChecklists.length} checklists`;
+
+    // register title and header actions in top bar
+    React.useEffect(() => {
+        const title = user?.role === 'admin' ? 'Todos os Checklists' : 'Meus Checklists';
+        const right = (
+            <HeaderActions
+                user={user}
+                viewMode={viewMode}
+                // pass the setter so HeaderActions can toggle
+                setViewMode={setViewMode}
+                onCreateNew={onCreateNew}
+                onSync={handleSync}
+                onGenerate={handleGenerate}
+                uploading={uploading}
+                generating={generating}
+                colors={colors}
+                themedColors={themedColors}
+            />
+        );
+
+        top.setState({ title, right });
+        return () => top.clear();
+    }, [user?.role, viewMode, uploading, generating, checklists.length]);
+
     return (
         <View
-            style={[styles.container, { backgroundColor: colors.background }]}
+            style={[
+                styles.container,
+                { backgroundColor: colors.background },
+            ]}
         >
-            <View
-                style={[
-                    styles.header,
-                    {
-                        backgroundColor: colors.surface,
-                        borderBottomColor: colors.border,
-                    },
-                ]}
-            >
-                <View style={styles.headerLeft}>
-                    <Text style={[styles.headerTitle, { color: colors.text }]}>
-                        {user?.role === 'admin'
-                            ? 'Todos os Checklists'
-                            : 'Meus Checklists'}
-                    </Text>
-                </View>
-                <View style={styles.headerRight}>
-                    <ThemeToggle />
-                    <TouchableOpacity
-                        style={styles.viewToggle}
-                        onPress={() => setViewMode((v) => (v === 'list' ? 'cards' : 'list'))}
-                    >
-                        <Text style={styles.viewToggleText}>
-                            {viewMode === 'list' ? 'Cartões' : 'Lista'}
-                        </Text>
-                    </TouchableOpacity>
-                    {user?.role === 'admin' && (
-                        <TouchableOpacity
-                            style={[styles.generateButton]}
-                            onPress={handleGenerate}
-                        >
-                            <Text style={[styles.generateButtonText]}>
-                                {generating ? 'Gerando...' : 'Gerar 10'}
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                        style={[
-                            styles.createButton,
-                            { backgroundColor: themedColors.primaryBg },
-                        ]}
-                        onPress={onCreateNew}
-                    >
-                        <Text
-                            style={[
-                                styles.createButtonText,
-                                { color: themedColors.primaryText },
-                            ]}
-                        >
-                            + Novo
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
             {filteredChecklists.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <Text
@@ -328,37 +407,43 @@ export const ChecklistList = ({
                     </View>
                 </View>
             ) : (
-                viewMode === 'list' ? (
-                    <FlatList
-                        key={'list'}
-                        data={filteredChecklists}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <ChecklistListItem
-                                checklist={item}
-                                onPress={() => onSelectChecklist?.(item.id)}
-                                onEdit={() => onSelectChecklist?.(item.id)}
-                                colors={colors}
-                                onDelete={() => handleDelete(item.id, item.plate)}
-                            />
-                        )}
-                        contentContainerStyle={styles.listContent}
-                    />
-                ) : (
-                    <FlatList
-                        key={`grid-2`}
-                        data={filteredChecklists}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <View style={styles.cardWrapper}>
-                                <ChecklistCard checklist={item} />
-                            </View>
-                        )}
-                        numColumns={2}
-                        columnWrapperStyle={styles.columnWrapper}
-                        contentContainerStyle={styles.gridContent}
-                    />
-                )
+                <>
+                    <Text style={styles.limitMessageText}>
+                        {limitMessage}
+                    </Text>
+
+                    {viewMode === 'list' ? (
+                        <FlatList
+                            key={'list'}
+                            data={limitedChecklists}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <ChecklistListItem
+                                    checklist={item}
+                                    onPress={() => onSelectChecklist?.(item.id)}
+                                    onEdit={() => onSelectChecklist?.(item.id)}
+                                    colors={colors}
+                                    onDelete={() => handleDelete(item.id, item.plate)}
+                                />
+                            )}
+                            contentContainerStyle={styles.listContent}
+                        />
+                    ) : (
+                        <FlatList
+                            key={`grid-2`}
+                            data={limitedChecklists}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <View style={styles.cardWrapper}>
+                                    <ChecklistCard checklist={item} />
+                                </View>
+                            )}
+                            numColumns={2}
+                            columnWrapperStyle={styles.columnWrapper}
+                            contentContainerStyle={styles.gridContent}
+                        />
+                    )}
+                </>
             )}
         </View>
     );
@@ -396,6 +481,11 @@ const styles = StyleSheet.create({
     createButtonText: {
         fontWeight: '600',
         fontSize: 12,
+    },
+    limitMessageText: {
+        fontSize: 12,
+        textAlign: 'center',
+        marginVertical: 8,
     },
     listContent: {
         padding: 12,
@@ -505,5 +595,11 @@ const styles = StyleSheet.create({
     },
     columnWrapper: {
         justifyContent: 'space-between',
+    },
+    uploadButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 6,
+        backgroundColor: '#10b981',
     },
 });

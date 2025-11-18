@@ -23,6 +23,7 @@ export interface VehicleChecklist {
     date: string;
     time: string;
     sections: ChecklistSection[];
+    images?: string[];
     generalNotes: string;
     driverSignature: string;
     inspectorSignature: string;

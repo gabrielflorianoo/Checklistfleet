@@ -8,6 +8,7 @@ import {
 import { getStatusEmoji } from '@/utils/statusHelpers';
 import { useDocxExport } from '@/utils/useDocxExport'; // <-- IMPORTAÇÃO DO NOVO HOOK
 import { usePdfExport } from '@/utils/usePdfExport';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -99,6 +100,7 @@ export const ChecklistCard = ({ checklist }: ChecklistCardProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const { exportDocx } = useDocxExport(); // <-- USANDO O NOVO HOOK
     const { exportPdf } = usePdfExport(); // <-- USANDO O HOOK DE PDF
+    const router = useRouter();
 
     const sectionSummaries = checklist.sections.map(getSectionSummary);
     const totalNotOk = sectionSummaries.reduce(
@@ -342,6 +344,25 @@ export const ChecklistCard = ({ checklist }: ChecklistCardProps) => {
                     >
                         📄 PDF
                     </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.exportButton,
+                        {
+                            borderColor: colors.border,
+                            backgroundColor: colors.background,
+                        },
+                    ]}
+                    onPress={() => {
+                        // Navigate to the images viewer filtered to this checklist
+                        try {
+                            router.push(`/view-images?checklistId=${encodeURIComponent(checklist.id)}`);
+                        } catch (err) {
+                            console.error('Erro ao navegar para visualizador de imagens:', err);
+                        }
+                    }}
+                >
+                    <Text style={[styles.exportButtonText, { color: colors.text }]}>🖼️ Ver Imagens</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[

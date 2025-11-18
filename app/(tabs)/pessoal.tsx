@@ -1,4 +1,5 @@
 import { ChecklistCard } from '@/components/admin/ChecklistCard';
+import { useTopBar } from '@/components/TopBarActionsContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +25,7 @@ export default function PessoalScreen() {
     const colors = Colors[theme];
     const { user, logout } = useAuth();
     const router = useRouter();
+    const top = useTopBar();
     const { getAllChecklists } = useChecklistStorage();
     const [checklists, setChecklists] = useState<VehicleChecklist[]>([]);
     const [loading, setLoading] = useState(true);
@@ -117,6 +119,38 @@ export default function PessoalScreen() {
     const pageTitle =
         user?.role === 'admin' ? 'Todos os Checklists' : 'Meus Checklists';
 
+    // set top bar title and actions for this page
+    React.useEffect(() => {
+        const title = pageTitle;
+        const right = (
+            <>
+                <ThemeToggle />
+                <TouchableOpacity
+                    style={[
+                        styles.viewImagesButton,
+                        { backgroundColor: colors.tint || '#0ea5e9' },
+                    ]}
+                    onPress={() => {
+                        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                            router.push('/view-images');
+                        } else {
+                            Alert.alert('Disponível no Web', 'Ver Todas as Imagens abre em uma nova página no navegador.');
+                        }
+                    }}
+                >
+                    <Text style={styles.viewImagesText}>Ver Todas as Imagens</Text>
+                </TouchableOpacity>
+            </>
+        );
+
+        try {
+            top.setState({ title, right });
+            return () => top.clear();
+        } catch (err) {
+            // ignore if provider missing
+        }
+    }, [pageTitle, colors.tint]);
+
     if (loading) {
         return (
             <View
@@ -134,52 +168,7 @@ export default function PessoalScreen() {
         <View
             style={[styles.container, { backgroundColor: colors.background }]}
         >
-            {/* Header */}
-            <View
-                style={[
-                    styles.header,
-                    {
-                        backgroundColor: colors.surface,
-                        borderBottomColor: colors.border,
-                    },
-                ]}
-            >
-                <View>
-                    <Text style={[styles.headerTitle, { color: colors.text }]}>
-                        {pageTitle}
-                    </Text>
-                    <Text
-                        style={[
-                            styles.headerSubtitle,
-                            { color: colors.placeholder },
-                        ]}
-                    >
-                        {user?.name} (
-                        {user?.role === 'admin' ? 'Administrador' : 'Usuário'})
-                    </Text>
-                    <Text
-                        style={[
-                            styles.headerCount,
-                            { color: colors.placeholder },
-                        ]}
-                    >
-                        {checklists.length} checklist
-                        {checklists.length !== 1 ? 's' : ''}
-                    </Text>
-                </View>
-                <View style={styles.headerButtons}>
-                    <ThemeToggle />
-                    <TouchableOpacity
-                        style={[
-                            styles.logoutButton,
-                            { backgroundColor: colors.danger || '#dc2626' },
-                        ]}
-                        onPress={handleLogout}
-                    >
-                        <Text style={styles.logoutText}>Sair</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+            {/* header removed — TopBar now shows page title and actions */}
 
             {/* Content */}
             {checklists.length === 0 ? (
@@ -240,12 +229,36 @@ const styles = StyleSheet.create({
         gap: 8,
         alignItems: 'center',
     },
+    viewImagesButton: {
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 3,
+        minHeight: 44,
+    },
     logoutButton: {
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 6,
     },
     logoutText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 12,
+    },
+    viewImagesButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 6,
+    },
+    viewImagesText: {
         color: '#fff',
         fontWeight: '600',
         fontSize: 12,
